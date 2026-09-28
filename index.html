@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<script>
+// Copia estatica (publicar.py): a API sao arquivos ao lado da pagina, e nao ha painel admin.
+(() => {
+  const base = new URL(".", location.href);
+  const fetchReal = window.fetch.bind(window);
+  window.fetch = (url, options) => {
+    if (typeof url !== "string" || !url.startsWith("/api/")) return fetchReal(url, options);
+    const path = url.split("?")[0].slice(1);
+    if (path === "api/admin" || path.startsWith("api/admin/")) return Promise.resolve(new Response("", { status: 404 }));
+    return fetchReal(new URL(path + ".json", base), options);
+  };
+})();
+</script>
+<style>#sim-reload { display: none !important; } /* the simulation was drawn once, at publishing */</style>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Out of Your League · Brasileirão Série B</title>
+<link rel="icon" href="marca/favicon.ico" sizes="32x32">
+<link rel="icon" href="marca/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="marca/apple-touch-icon.png">
+<script>
+  // The saved edition goes on before first paint, so the page never flashes the other one.
+  try {
+    var saved = { dark: "floodlight", light: "broadsheet", floodlight: "floodlight", broadsheet: "broadsheet" }[localStorage.getItem("tema")];
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+  } catch (_) {}
+</script>
+<!-- Out of Your League design system (claude.ai artifact "Out of Your League"). Every path is relative, so the
+     same page works from the local server and from a GitHub Pages subfolder. -->
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/views.css">
+<script type="module" src="js/main.js"></script>
+<script>
+window.goatcounter = { path: () => location.pathname + location.hash };
+window.addEventListener("hashchange", () => window.goatcounter.count && window.goatcounter.count({ path: location.pathname + location.hash }));
+</script>
+<script data-goatcounter="https://ooyl.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</head>
+<body>
+<header class="ooyl-topbar">
+  <div class="ooyl-topbar__in">
+    <a class="ooyl-topbar__brand" href="#/temporada" title="Out of Your League">
+      <!-- The mark (marca/): the ring and the point that has left it, in the edition's colors. -->
+      <svg class="ooyl-mark" viewBox="0 0 64 64" width="28" height="28" aria-hidden="true"><circle cx="26" cy="38" r="18" style="fill: none; stroke: var(--data-dot); stroke-width: 8"/><circle cx="51" cy="13" r="9" style="fill: var(--accent)"/></svg>
+      <span class="ooyl-topbar__title">
+        <span class="ooyl-kicker">Out of Your League</span>
+        <span class="ooyl-topbar__name">Brasileirão</span>
+        <span class="ooyl-topbar__meta" id="season-label">Série B</span>
+      </span>
+    </a>
+    <nav class="ooyl-topbar__nav" aria-label="Seções">
+      <div class="ooyl-tabs ooyl-tabs--line" id="main-tabs" role="tablist">
+        <button class="ooyl-tab" role="tab" data-view="temporada" aria-selected="true">Temporada</button>
+        <button class="ooyl-tab" role="tab" data-view="partidas" aria-selected="false">Partidas</button>
+        <button class="ooyl-tab" role="tab" data-view="times" aria-selected="false">Times</button>
+        <button class="ooyl-tab" role="tab" data-view="estatisticas" aria-selected="false">Estatísticas</button>
+        <button class="ooyl-tab" role="tab" data-view="jogadores" aria-selected="false">Desempenho individual</button>
+        <button class="ooyl-tab" role="tab" data-view="selecao" aria-selected="false">Seleção</button>
+        <button class="ooyl-tab" role="tab" data-view="arbitragem" aria-selected="false">Arbitragem</button>
+        <button class="ooyl-tab" role="tab" data-view="simulador" aria-selected="false">Simulador</button>
+      </div>
+    </nav>
+    <div class="ooyl-topbar__end">
+      <select class="lang-select" id="lang" aria-label="Idioma" title="Idioma">
+        <option value="pt">PT</option><option value="en">EN</option><option value="es">ES</option>
+      </select>
+      <button class="ooyl-btn ooyl-btn--ghost ooyl-btn--sm" id="theme" title="Alternar entre Floodlight (escuro) e Broadsheet (claro)">Tema</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="loading" class="empty">Carregando dados locais...</div>
+
+  <!-- TEMPORADA -->
+  <section id="view-temporada" class="view" hidden>
+    <div class="ooyl-tiles" id="kpis"></div>
+
+    <section class="ooyl-card">
+      <header class="ooyl-card__head">
+        <div class="ooyl-card__titles">
+          <h2 class="ooyl-headline">Classificação</h2>
+          <p class="ooyl-sub">Pontos corridos calculados a partir das partidas coletadas. xG somado do shotmap. Clique num time para abrir suas escalações e elenco. As faixas coloridas são as zonas do regulamento.</p>
+        </div>
+      </header>
+      <div class="scroll"><table id="standings"></table></div>
+      <div class="legend-zones" data-zones></div>
+    </section>
+
+    <section class="ooyl-card">
+      <header class="ooyl-card__head">
+        <div class="ooyl-card__titles">
+          <h2 class="ooyl-headline">Gols por rodada</h2>
+          <p class="ooyl-sub">Total de gols marcados em cada rodada disputada.</p>
+        </div>
+      </header>
+      <div id="rounds-chart"></div>
+      <details>
+        <summary>Ver dados em tabela</summary>
+        <div class="scroll"><table id="rounds-table"></table></div>
+      </details>
+    </section>
+
+    <section class="ooyl-card">
+      <header class="ooyl-card__head">
+        <div class="ooyl-card__titles">
+          <h2 class="ooyl-headline">Artilheiros</h2>
+          <p class="ooyl-sub">Gols contra não são atribuídos ao autor. Pênaltis contados à parte.</p>
+        </div>
+      </header>
+      <div id="scorers-chart"></div>
+      <details>
+        <summary>Ver dados em tabela</summary>
+        <div class="scroll"><table id="scorers-table"></table></div>
+      </details>
+    </section>
+  </section>
+
+  <!-- PARTIDAS -->
+  <section id="view-partidas" class="view" hidden>
+    <div class="ooyl-tabs ooyl-tabs--line ooyl-tabs--page" id="match-modes" role="tablist" aria-label="Partidas">
+      <button class="ooyl-tab" role="tab" data-mmode="resultados" aria-selected="true">Resultados</button>
+      <button class="ooyl-tab" role="tab" data-mmode="proximas" aria-selected="false">Próximas rodadas</button>
+    </div>
+    <section class="ooyl-card">
+      <header class="ooyl-card__head">
+        <div class="ooyl-card__titles">
+          <h2 class="ooyl-headline" id="matches-title">Resultados</h2>
+          <p class="ooyl-sub" id="matches-sub"></p>
+        </div>
+        <div class="ooyl-card__actions">
+          <select id="f-round" aria-label="Rodada"></select>
+          <select id="f-team" aria-label="Time"></select>
+        </div>
+      </header>
+      <div id="match-list" class="ooyl-matches"></div>
+    </section>
+  </section>
+
+  <!-- DESEMPENHO INDIVIDUAL -->
+  <section id="view-jogadores" class="view" hidden>
+    <div class="ooyl-tiles" id="player-kpis"></div>
+
+    <div class="filter-row">
+      <div class="controls">
+        <span class="ooyl-field"><label class="ctl" for="f-min">Mínimo de jogos</label><select id="f-min"></select></span>
+        <span class="ooyl-field"><label class="ctl" for="f-pos">Posição</label><select id="f-pos"></select></span>
+        <span class="ooyl-field"><label class="ctl" for="f-find">Jogador</label>
+          <input id="f-find" type="search" list="players-list" placeholder="buscar e abrir…" autocomplete="off"></span>
+        <datalist id="players-list"></datalist>
+      </div>
+      <div class="top-spacer"></div>
+      <p class="ooyl-sub" id="players-scope"></p>
+    </div>
+
+    <section class="ooyl-card">
+      <header class="ooyl-card__head">
+        <div class="ooyl-card__titles">
+          <h2 class="ooyl-headline">Top 10 notas médias</h2>
+          <p class="ooyl-sub" id="top-rated-sub"></p>
+        </div>
+      </header>
+      <div id="top-rated-chart"></div>
+      <details>
+        <summary>Ver dados em tabela</summary>
+        <div class="scroll"><table id="top-rated-table"></table></div>
+      </details>
+    </section>
+
+    <section class="ooyl-card">
+      <header class="ooyl-card__head">
+        <div class="ooyl-card__titles">
+          <h2 class="ooyl-headline">Ranking completo</h2>
+          <p class="ooyl-sub" id="ranking-sub"></p>
+        </div>
+      </header>
+      <div class="scroll"><table id="ranking-table"></table></div>
+    </section>
+  </section>
+
+  <!-- TIMES: lista na ordem da classificacao -->
+  <section id="view-times" class="view" hidden>
+    <section class="ooyl-card">
+      <header class="ooyl-card__head">
+        <div class="ooyl-card__titles">
+          <h2 class="ooyl-headline">Times</h2>
+          <p class="ooyl-sub">Na ordem da classificação. Clique para ver a escalação mais usada, a mais recente e o elenco por nota.</p>
+        </div>
+      </header>
+      <div id="teams-list"></div>
+    </section>
+  </section>
+
+  <!-- ESTATISTICAS: lideres da temporada, por time e por jogador -->
+  <section id="view-estatisticas" class="view" hidden>
+    <div class="ooyl-tabs ooyl-tabs--line ooyl-tabs--page" id="stats-tabs" role="tablist" aria-label="Líderes">
+      <button class="ooyl-tab" role="tab" data-stab="times" aria-selected="true">Times</button>
+      <button class="ooyl-tab" role="tab" data-stab="jogadores" aria-selected="false">Jogadores</button>
+      <button class="ooyl-tab" role="tab" data-stab="distancia" aria-selected="false">Distância</button>
+    </div>
+    <div class="filter-row" id="stats-filters" hidden></div>
+    <div class="ooyl-tiles" id="stats-kpis"></div>
+    <div id="stats-body" class="view"></div>
+  </section>
+
+  <!-- TIME: escalacoes e elenco de um time -->
+  <section id="view-time" class="view" hidden>
+    <div class="page-back"><button class="ooyl-btn ooyl-btn--ghost ooyl-btn--sm" id="team-back">‹ Voltar</button></div>
+    <div id="team-body" class="view"></div>
+  </section>
+
+  <!-- JOGADOR: a temporada de um jogador, partida a partida -->
+  <section id="view-jogador" class="view" hidden>
+    <div class="page-back"><button class="ooyl-btn ooyl-btn--ghost ooyl-btn--sm" id="player-back">‹ Voltar</button></div>
+    <div id="player-body" class="view"></div>
+  </section>
+
+  <!-- SELECAO: um onze pelos perfis de scouting, a Seleção do scouting só com esta liga (views/selecao.js monta tudo) -->
+  <section id="view-selecao" class="view" hidden>
+    <div id="sel-root" class="view"></div>
+  </section>
+
+  <!-- ARBITRAGEM: os arbitros da temporada, com os tracos de perfil de cada um, e a previsao de cartoes -->
+  <section id="view-arbitragem" class="view" hidden>
+    <div class="ooyl-tabs ooyl-tabs--line ooyl-tabs--page" id="ref-tabs" role="tablist" aria-label="Arbitragem">
+      <button class="ooyl-tab" role="tab" data-rtab="arbitros" aria-selected="true">Árbitros</button>
+      <button class="ooyl-tab" role="tab" data-rtab="cartoes" aria-selected="false">Previsão de cartões</button>
+    </div>
+
+    <div id="refs-main" class="view">
+      <div class="ooyl-tiles" id="ref-kpis"></div>
+
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">Árbitros</h2>
+            <p class="ooyl-sub" id="refs-sub">Carregando os árbitros...</p>
+          </div>
+        </header>
+        <div class="scroll"><table id="refs-table"></table></div>
+      </section>
+
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">Comparar árbitros</h2>
+            <p class="ooyl-sub" id="refs-compare-sub"></p>
+          </div>
+          <div class="ooyl-card__actions">
+            <span class="ooyl-field"><label class="ctl" for="ref-metric">Número</label><select id="ref-metric"></select></span>
+          </div>
+        </header>
+        <div id="refs-chart"></div>
+      </section>
+    </div>
+
+    <!-- Previsao de cartoes dos jogos que faltam, ao lado da linha das casas quando o SofaScore ja a tem -->
+    <div id="cards-main" class="view" hidden>
+      <div class="ooyl-tiles" id="cards-kpis"></div>
+
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">Próximos jogos</h2>
+            <p class="ooyl-sub" id="cards-sub">Calculando a previsão...</p>
+          </div>
+          <div class="ooyl-card__actions">
+            <select id="cards-round" aria-label="Rodada"></select>
+          </div>
+        </header>
+        <div id="cards-list"></div>
+      </section>
+
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">Como a previsão se saiu</h2>
+            <p class="ooyl-sub" id="cards-test-sub"></p>
+          </div>
+        </header>
+        <div id="cards-test"></div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ARBITRO: o perfil tracado de um arbitro -->
+  <section id="view-arbitro" class="view" hidden>
+    <div class="page-back"><button class="ooyl-btn ooyl-btn--ghost ooyl-btn--sm" id="referee-back">‹ Voltar</button></div>
+    <div id="referee-body" class="view"></div>
+  </section>
+
+  <!-- SIMULADOR -->
+  <section id="view-simulador" class="view" hidden>
+    <div class="ooyl-tabs ooyl-tabs--line ooyl-tabs--page" id="sim-modes" role="tablist" aria-label="Modo do simulador">
+      <button class="ooyl-tab" role="tab" data-smode="manual" aria-selected="true">Simular rodada a rodada</button>
+      <button class="ooyl-tab" role="tab" data-smode="prob" aria-selected="false">Probabilidades do modelo</button>
+    </div>
+
+    <!-- Modo manual: o usuario digita os placares e a tabela recalcula, como no simulador do ge -->
+    <div id="sim-manual" class="view">
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">Tabela simulada</h2>
+            <p class="ooyl-sub" id="siman-sub">Carregando...</p>
+          </div>
+          <div class="ooyl-card__actions">
+            <button class="ooyl-btn ooyl-btn--sm" id="siman-fill" title="preenche só os jogos ainda vazios com o palpite do modelo: os jogos mais equilibrados, em que as chances de vitória dos dois lados estão mais próximas, viram 1-1, tantos quantos os empates que o modelo espera, e nos outros vence o favorito, por 1-0 ou 0-1. Zebras só aparecem em Sortear esta rodada.">Preencher vazios com o palpite do modelo</button>
+            <button class="ooyl-btn ooyl-btn--ghost ooyl-btn--sm" id="siman-clear">Limpar tudo</button>
+          </div>
+        </header>
+        <div class="scroll"><table id="siman-table"></table></div>
+        <div class="legend-zones" data-zones data-extra="▲▼ posições ganhas ou perdidas em relação à tabela real"></div>
+      </section>
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline" id="siman-round-title">Rodada</h2>
+            <p class="ooyl-sub" id="siman-hint"></p>
+          </div>
+          <div class="ooyl-card__actions">
+            <button class="ooyl-btn ooyl-btn--sm" id="siman-prev">‹ Anterior</button>
+            <select id="siman-round" aria-label="Rodada"></select>
+            <button class="ooyl-btn ooyl-btn--sm" id="siman-next">Próxima ›</button>
+            <button class="ooyl-btn ooyl-btn--ghost ooyl-btn--sm" id="siman-fill-round" title="troca todos os jogos desta rodada pelo palpite do modelo">Palpite nesta rodada</button>
+            <button class="ooyl-btn ooyl-btn--primary ooyl-btn--sm" id="siman-draw-round" title="sorteia cada jogo pelas chances do modelo">Sortear esta rodada</button>
+          </div>
+        </header>
+        <div id="siman-games"></div>
+      </section>
+    </div>
+
+    <div id="sim-prob" class="view" hidden>
+      <div class="ooyl-tiles" id="sim-kpis"></div>
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">Simulador do resto da temporada</h2>
+            <p class="ooyl-sub" id="sim-sub">Carregando...</p>
+          </div>
+          <div class="ooyl-card__actions">
+            <button class="ooyl-btn" id="sim-reload">Simular de novo</button>
+          </div>
+        </header>
+        <div class="scroll"><table id="sim-table"></table></div>
+      </section>
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">Jogo a jogo</h2>
+            <p class="ooyl-sub">O número é o placar exato mais provável de cada partida, que costuma ser 1-1 mesmo
+              quando há favorito. Quem é favorito aparece na barra, com a chance de vitória do mandante, empate e
+              vitória do visitante.</p>
+          </div>
+          <div class="ooyl-card__actions">
+            <label class="ctl" for="sim-round">Rodada</label>
+            <select id="sim-round"></select>
+          </div>
+        </header>
+        <div id="sim-games"></div>
+      </section>
+    </div>
+  </section>
+
+  <!-- PARTIDA -->
+  <section id="view-partida" class="view" hidden>
+    <div class="page-back"><button class="ooyl-btn ooyl-btn--ghost ooyl-btn--sm" id="back">‹ Voltar</button></div>
+    <section class="ooyl-card">
+      <div id="match-head"></div>
+      <div class="ooyl-tabs ooyl-tabs--line" id="match-tabs" role="tablist" aria-label="Partida">
+        <button class="ooyl-tab" role="tab" data-mtab="resumo" aria-selected="true">Resumo</button>
+        <button class="ooyl-tab" role="tab" data-mtab="estatisticas" aria-selected="false">Estatísticas</button>
+        <button class="ooyl-tab" role="tab" data-mtab="escalacoes" aria-selected="false">Escalações</button>
+        <button class="ooyl-tab" role="tab" data-mtab="shotmap" aria-selected="false">Shotmap</button>
+      </div>
+      <div id="match-body"></div>
+    </section>
+  </section>
+
+  <!-- ADMIN: montada por js/views/admin.js quando o servidor tem o painel; o site publico nao a leva -->
+</main>
+<script>
+// Out of Your League: the switch between the sites of the domain (the leagues, the scouting, the draft), opened by
+// hovering the brand at the top of the page, or by the small button next to it (touch screens, keyboard).
+// Each site's publisher puts this file inline in the published page, as it does the visit counter: the root
+// publicar.py (Série A), ooyl/publish/export.py (Série B and the engine's other leagues) and
+// scouting/publicar.py (scouting and draft). Outside the domain's layout (a local dashboard served at /) it does nothing. A site
+// is listed only once its data answer, like the cards of the home page, so a league not yet published stays
+// out until it is; the answers are kept for the browser session.
+(() => {
+  const SITES = [
+    { root: "/", name: { pt: "Início", en: "Home", es: "Inicio" }, meta: { pt: "Todos os campeonatos", en: "All leagues", es: "Todos los campeonatos" } },
+    { root: "/serie-a/", probe: "api/index.json", name: "Série A", meta: "Brasileirão" },
+    { root: "/serie-b/", probe: "api/index.json", name: "Série B", meta: "Brasileirão" },
+    { root: "/premier-league/", probe: "api/index.json", name: "Premier League", meta: { pt: "Inglaterra", en: "England", es: "Inglaterra" } },
+    { root: "/la-liga/", probe: "api/index.json", name: "La Liga", meta: { pt: "Espanha", en: "Spain", es: "España" } },
+    { root: "/scouting/", probe: "api/ligas.json", name: "Scouting",
+      meta: { pt: "Ranking, comparação e seleção", en: "Rankings, comparison and line-ups", es: "Ranking, comparación y selección" } },
+    { root: "/draft/", probe: "api/ligas.json", name: "Draft",
+      meta: { pt: "Monte um time com cartas e jogue a Copa", en: "Build a team of cards and play the cup", es: "Arma un equipo de cartas y juega la copa" } },
+  ];
+  const here = SITES.find((site) => site.probe && location.pathname.startsWith(site.root));
+  const brand = document.querySelector(".ooyl-topbar__brand");
+  if (!here || !brand || document.getElementById("ooyl-sites")) return;
+  let lang = "pt";
+  try { lang = { en: "en", es: "es" }[localStorage.getItem("idioma")] || "pt"; } catch (_) {}
+  const say = (text) => (typeof text === "string" ? text : text[lang] || text.pt);
+  const LABELS = { pt: ["Trocar de site"], en: ["Switch site"], es: ["Cambiar de sitio"] }[lang];
+
+  const style = document.createElement("style");
+  style.textContent = `
+.ooyl-sites__toggle { align-self: center; margin-left: -6px; padding: 6px 7px; border: 0; border-radius: 6px; background: none; cursor: pointer;
+  color: var(--ink-muted, #7f8995); font: 600 12px/1 var(--font-sans, system-ui, sans-serif); }
+.ooyl-sites__toggle:hover, .ooyl-sites__toggle[aria-expanded="true"] { color: var(--ink-strong, #fff); background: var(--surface-hover, #161a20); }
+.ooyl-sites__toggle:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #c6f24e); }
+.ooyl-sites { position: fixed; z-index: 1000; min-width: 264px; max-width: calc(100vw - 24px); padding: 10px;
+  border: 1px solid var(--line-strong, #606a78); border-radius: 10px; background: var(--surface-raised, #1a1f26);
+  box-shadow: var(--shadow-pop, 0 12px 32px -8px #000c); }
+.ooyl-sites[hidden] { display: none; }
+.ooyl-sites__kicker { margin: 2px 10px 8px; font: 600 11px/14px var(--font-sans, system-ui, sans-serif); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent, #c6f24e); }
+.ooyl-sites__item { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--radius-sm, 6px); text-decoration: none; }
+.ooyl-sites__item:hover, .ooyl-sites__item:focus-visible { background: var(--surface-hover, #161a20); outline: none; }
+.ooyl-sites__item.is-here, .ooyl-sites__item.is-here:hover { background: var(--action, #c6f24e); }
+.ooyl-sites__item.is-here .ooyl-sites__name, .ooyl-sites__item.is-here .ooyl-sites__meta { color: var(--on-action, #0a0c0f); }
+.ooyl-sites__name { font: 600 14px/18px var(--font-sans, system-ui, sans-serif); color: var(--ink-strong, #fff); }
+.ooyl-sites__meta { font: 400 12px/16px var(--font-sans, system-ui, sans-serif); color: var(--ink-muted, #7f8995); }`;
+  document.head.append(style);
+
+  const menu = document.createElement("div");
+  menu.className = "ooyl-sites";
+  menu.id = "ooyl-sites";
+  menu.hidden = true;
+  const kicker = document.createElement("p");
+  kicker.className = "ooyl-sites__kicker";
+  kicker.textContent = "Out of Your League";
+  menu.append(kicker);
+  const items = SITES.map((site) => {
+    const link = document.createElement("a");
+    link.className = "ooyl-sites__item" + (site === here ? " is-here" : "");
+    link.href = site.root;
+    link.hidden = site !== here && !!site.probe;  // a league shows once its data answer
+    if (site === here) link.setAttribute("aria-current", "page");
+    const name = document.createElement("span"), meta = document.createElement("span");
+    name.className = "ooyl-sites__name";
+    name.textContent = say(site.name);
+    meta.className = "ooyl-sites__meta";
+    meta.textContent = say(site.meta);  // the current site is filled with the action colour, as the lit page tab
+    link.append(name, meta);
+    menu.append(link);
+    return link;
+  });
+  document.body.append(menu);
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "ooyl-sites__toggle";
+  toggle.textContent = "▾";
+  toggle.title = LABELS[0];
+  toggle.setAttribute("aria-label", LABELS[0]);
+  toggle.setAttribute("aria-controls", "ooyl-sites");
+  toggle.setAttribute("aria-expanded", "false");
+  brand.after(toggle);
+
+  // Which sites answer, asked once per browser session.
+  let known = {};
+  try { known = JSON.parse(sessionStorage.getItem("ooyl-sites") || "{}"); } catch (_) {}
+  SITES.forEach((site, i) => {
+    if (!site.probe || site === here) return;
+    const show = (ok) => { items[i].hidden = !ok; };
+    if (site.root in known) return show(known[site.root]);
+    fetch(site.root + site.probe, { method: "HEAD" }).then((res) => res.ok).catch(() => false).then((ok) => {
+      known[site.root] = ok;
+      try { sessionStorage.setItem("ooyl-sites", JSON.stringify(known)); } catch (_) {}
+      show(ok);
+    });
+  });
+
+  let timer = null;
+  const place = () => {
+    const box = brand.getBoundingClientRect();
+    menu.style.top = `${Math.round(box.bottom + 6)}px`;
+    menu.style.left = `${Math.max(12, Math.round(box.left))}px`;
+  };
+  const open = () => {
+    clearTimeout(timer);
+    if (!menu.hidden) return;
+    place();
+    menu.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+  };
+  const close = () => {
+    clearTimeout(timer);
+    menu.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+  };
+  const later = () => { clearTimeout(timer); timer = setTimeout(close, 220); };
+  const hover = matchMedia("(hover: hover)");
+  for (const node of [brand, toggle, menu]) {
+    node.addEventListener("mouseenter", () => { if (hover.matches) open(); });
+    node.addEventListener("mouseleave", () => { if (hover.matches) later(); });
+  }
+  toggle.addEventListener("click", () => {
+    if (menu.hidden) {
+      open();
+      const first = items.find((link) => !link.hidden);
+      if (first) first.focus();
+    } else close();
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !menu.hidden) { close(); toggle.focus(); }
+  });
+  document.addEventListener("click", (ev) => {
+    if (!menu.hidden && !menu.contains(ev.target) && ev.target !== toggle && !brand.contains(ev.target)) close();
+  });
+  menu.addEventListener("focusout", (ev) => { if (!menu.contains(ev.relatedTarget) && ev.relatedTarget !== toggle) later(); });
+  addEventListener("resize", () => { if (!menu.hidden) place(); });
+  addEventListener("scroll", () => { if (!menu.hidden) place(); }, { passive: true });
+})();
+</script>
+</body>
+</html>
