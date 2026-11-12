@@ -792,7 +792,7 @@
  "Tema": "Tema",
  "Carregando dados locais...": "Cargando datos locales...",
  "Classificação": "Clasificación",
- "Pontos corridos calculados a partir das partidas coletadas. xG somado do shotmap. Clique num time para abrir suas escalações e elenco. As faixas coloridas são as zonas do regulamento.": "Clasificación calculada a partir de los partidos recopilados. xG sumado del mapa de tiros. Haz clic en un equipo para abrir sus alineaciones y su plantel. Las franjas de color son las zonas del reglamento.",
+ "Pontos corridos calculados a partir das partidas coletadas. xG somado do shotmap ou, nos jogos sem ele, o das estatísticas da partida. Clique num time para abrir suas escalações e elenco. As faixas coloridas são as zonas do regulamento.": "Clasificación calculada a partir de los partidos recopilados. xG sumado del mapa de tiros o, en los partidos sin él, el de las estadísticas del partido. Haz clic en un equipo para abrir sus alineaciones y su plantel. Las franjas de color son las zonas del reglamento.",
  "Total de gols marcados em cada rodada disputada.": "Total de goles marcados en cada jornada disputada.",
  "Gols contra não são atribuídos ao autor. Pênaltis contados à parte.": "Los goles en propia puerta no se atribuyen al autor. Penaltis contados aparte.",
  "Mínimo de jogos": "Mínimo de partidos",
@@ -982,5 +982,14 @@
  "VOL": "MCD",
  "PON": "EXT",
  "Idade": "Edad",
- "Valor": "Valor"
+ "Valor": "Valor",
+ " Sem shotmap: {jogos}.": " Sin mapa de tiros: {jogos}.",
+ "Segunda opinião: notas de desempenho": "Segunda opinión: notas de rendimiento",
+ "Um segundo modelo para os mesmos jogos. Cada time tem uma nota em casa e outra fora; depois de cada partida as notas dos dois lados andam o quanto ela surpreendeu, contando 25% do saldo de gols e 75% da diferença de xG. No teste com as rodadas já disputadas das Séries A e B de 2026, os dois modelos erraram o mesmo tanto, e a média dos dois errou um pouco menos, uma diferença pequena o bastante para ser acaso. As chances da tabela acima continuam vindo só do modelo do simulador.": "Un segundo modelo para los mismos partidos. Cada equipo tiene una nota en casa y otra fuera; después de cada partido las notas de los dos lados se mueven cuanto este sorprendió, contando el 25% de la diferencia de goles y el 75% de la diferencia de xG. En la prueba con las jornadas ya disputadas de las Series A y B de 2026, los dos modelos fallaron lo mismo, y la media de los dos falló un poco menos, una diferencia lo bastante pequeña para ser azar. Las probabilidades de la tabla de arriba siguen viniendo solo del modelo del simulador.",
+ "Notas dos times · gols de vantagem sobre um time médio": "Notas de los equipos · goles de ventaja sobre un equipo medio",
+ "Rodada {n} · mandante, empate e visitante, em %": "Jornada {n} · local, empate y visitante, en %",
+ "Sem data definida · mandante, empate e visitante, em %": "Sin fecha definida · local, empate y visitante, en %",
+ "Notas": "Notas",
+ "Média dos dois": "Media de los dos",
+ "Em casa": "En casa"
 }

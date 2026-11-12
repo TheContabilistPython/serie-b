@@ -792,7 +792,7 @@
  "Tema": "Theme",
  "Carregando dados locais...": "Loading local data...",
  "Classificação": "Standings",
- "Pontos corridos calculados a partir das partidas coletadas. xG somado do shotmap. Clique num time para abrir suas escalações e elenco. As faixas coloridas são as zonas do regulamento.": "League table calculated from the collected matches. xG added up from the shot map. Click a team to open its line-ups and squad. The coloured bands are the competition's zones.",
+ "Pontos corridos calculados a partir das partidas coletadas. xG somado do shotmap ou, nos jogos sem ele, o das estatísticas da partida. Clique num time para abrir suas escalações e elenco. As faixas coloridas são as zonas do regulamento.": "League table calculated from the collected matches. xG added up from the shot map or, in matches without one, the one in the match statistics. Click a team to open its line-ups and squad. The coloured bands are the competition's zones.",
  "Total de gols marcados em cada rodada disputada.": "Total goals scored in each round played.",
  "Gols contra não são atribuídos ao autor. Pênaltis contados à parte.": "Own goals aren't credited to the player. Penalties counted separately.",
  "Mínimo de jogos": "Minimum matches",
@@ -982,5 +982,14 @@
  "VOL": "DM",
  "PON": "WG",
  "Idade": "Age",
- "Valor": "Value"
+ "Valor": "Value",
+ " Sem shotmap: {jogos}.": " No shot map: {jogos}.",
+ "Segunda opinião: notas de desempenho": "Second opinion: performance ratings",
+ "Um segundo modelo para os mesmos jogos. Cada time tem uma nota em casa e outra fora; depois de cada partida as notas dos dois lados andam o quanto ela surpreendeu, contando 25% do saldo de gols e 75% da diferença de xG. No teste com as rodadas já disputadas das Séries A e B de 2026, os dois modelos erraram o mesmo tanto, e a média dos dois errou um pouco menos, uma diferença pequena o bastante para ser acaso. As chances da tabela acima continuam vindo só do modelo do simulador.": "A second model for the same matches. Each team has a rating at home and another away; after every match both sides' ratings move by how much it surprised, counting 25% of the goal difference and 75% of the xG difference. Tested on the rounds already played of the 2026 Série A and Série B, the two models were equally wrong, and the average of the two a little less, a gap small enough to be chance. The chances in the table above still come from the simulator's model alone.",
+ "Notas dos times · gols de vantagem sobre um time médio": "Team ratings · goals of advantage over an average side",
+ "Rodada {n} · mandante, empate e visitante, em %": "Round {n} · home, draw and away, in %",
+ "Sem data definida · mandante, empate e visitante, em %": "No date set · home, draw and away, in %",
+ "Notas": "Ratings",
+ "Média dos dois": "Average of the two",
+ "Em casa": "At home"
 }

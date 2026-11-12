@@ -129,7 +129,10 @@ const gameLabel = (g) => tx("Rodada {rodada} · {adversario} ({lado}) {placar}",
 
 function renderTeamShots(host, t) {
   const opt = local.shots;
-  const games = new Map(t.games.map((g) => [g.match, g]));
+  // A match imported without a shotmap has no shot on either side: it stays out of the count and of the picker.
+  const drawn = new Set(t.shots.map((s) => s.match));
+  const mapped = t.games.filter((g) => drawn.has(g.match) || g.against.shots > 0);
+  const games = new Map(mapped.map((g) => [g.match, g]));
   const game = (opt.match && games.get(Number(opt.match))) || null;
   if (!game) opt.match = "";
   const filter = SHOT_FILTERS.find((f) => f.key === opt.filter) || SHOT_FILTERS[0];
@@ -145,14 +148,15 @@ function renderTeamShots(host, t) {
 
   const pick = el("select", { "aria-label": "Jogo", onchange: (ev) => { opt.match = ev.target.value; renderTeamTab(); } },
     el("option", { value: "", text: "Temporada inteira" }),
-    t.games.slice().reverse().map((g) => el("option", { value: String(g.match), text: gameLabel(g) })));
+    mapped.slice().reverse().map((g) => el("option", { value: String(g.match), text: gameLabel(g) })));
   pick.value = opt.match;
   const sub = game
     ? txn("Rodada {rodada}, {lado}: {placar} contra {adversario}. xG {nosso} a {deles}.", { rodada: game.round ?? "?",
       lado: tx(game.home ? "em casa" : "fora"), placar: `${game.gf}–${game.ga}`, adversario: teamName(game.opponent),
       nosso: fmt(mine.xg, 2), deles: fmt(theirs.xg, 2) })
     : tx("{finalizacoes} em {jogos}, {xg} de xG. Escolha um jogo para ver só as dele.", { finalizacoes: counted(mine.shots, "finalização", "finalizações"),
-      jogos: counted(t.games.length, "jogo", "jogos"), xg: fmt(mine.xg, 1) });
+      jogos: counted(mapped.length, "jogo", "jogos"), xg: fmt(mine.xg, 1) })
+      + (mapped.length < t.games.length ? tx(" Sem shotmap: {jogos}.", { jogos: counted(t.games.length - mapped.length, "jogo", "jogos") }) : "");
   const card = el("section", { class: "ooyl-card team-shots" },
     el("header", { class: "ooyl-card__head" },
       el("div", { class: "ooyl-card__titles" }, el("h2", { class: "ooyl-headline", text: "Shotmap" }), el("p", { class: "ooyl-sub" }, sub)),

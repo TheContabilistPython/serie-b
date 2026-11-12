@@ -276,6 +276,42 @@ function renderSimGames() {
       text: tx(block.round ? "Rodada {n} · mandante, empate, visitante" : "Sem data definida · mandante, empate, visitante", { n: block.round }) }));
     host.appendChild(el("div", { class: "ooyl-matches" }, block.matches.map(simMatchNode)));
   });
+  renderSimSecond(blocks);
+}
+
+// The second model (analysis/ratings.py) next to the simulator's: the chosen round's games by both and by
+// their mean, then every team's rating. sim.second.games goes by "home id-away id"; a payload without it
+// hides the card.
+function renderSimSecond(blocks) {
+  const second = local.sim.second;
+  $("sim-second").hidden = !second;
+  if (!second) return;
+  const trio = (chances) => chances.map((p) => fmt(100 * p, 0)).join(" · ");
+  const signed = (v) => (v > 0 ? "+" : "") + fmt(v, 2);
+  const host = clear($("sim-second-games"));
+  blocks.forEach((block) => {
+    host.appendChild(el("div", { class: "round-name",
+      text: tx(block.round ? "Rodada {n} · mandante, empate e visitante, em %" : "Sem data definida · mandante, empate e visitante, em %", { n: block.round }) }));
+    host.appendChild(el("div", { class: "scroll" }, el("table", {},
+      el("thead", {}, el("tr", {}, ["Jogo", "Simulador", "Notas", "Média dos dois"].map((h, i) => el("th", { class: i ? "" : "left", text: h })))),
+      el("tbody", {}, block.matches.map((m) => {
+        const theirs = [m.pHome, m.pDraw, m.pAway], ours = second.games[`${m.home.id}-${m.away.id}`];
+        return el("tr", {},
+          el("td", { class: "left" }, crest(m.home), el("span", { text: `${m.home.short || m.home.name} x ${m.away.short || m.away.name}` })),
+          el("td", { text: trio(theirs) }), el("td", { text: ours ? trio(ours) : "-" }),
+          el("td", { class: "strong", text: ours ? trio(theirs.map((p, i) => (p + ours[i]) / 2)) : "-" }));
+      })))));
+  });
+  const table = clear($("sim-second-table"));
+  table.appendChild(el("thead", {}, el("tr", {}, ["#", "Time", "Em casa", "Fora", "Média"].map((h, i) =>
+    el("th", { class: i <= 1 ? "left" : "", text: h })))));
+  table.appendChild(el("tbody", {}, second.table.map((r, i) => el("tr", {
+    class: "row-link", title: "abrir o time", onclick: () => go("#/time/" + r.team.id),
+  },
+    el("td", { class: "left pos", text: String(i + 1) }),
+    el("td", { class: "left" }, crest(r.team), el("span", { text: r.team.name })),
+    el("td", { text: signed(r.home) }), el("td", { text: signed(r.away) }),
+    el("td", { class: "strong", text: signed(r.rating) })))));
 }
 
 // The model's most likely score in an outlined box, the odds as one split bar.
