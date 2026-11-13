@@ -230,6 +230,7 @@ window.addEventListener("hashchange", () => window.goatcounter.count && window.g
   <section id="view-arbitragem" class="view" hidden>
     <div class="ooyl-tabs ooyl-tabs--line ooyl-tabs--page" id="ref-tabs" role="tablist" aria-label="Arbitragem">
       <button class="ooyl-tab" role="tab" data-rtab="arbitros" aria-selected="true">Árbitros</button>
+      <button class="ooyl-tab" role="tab" data-rtab="var" aria-selected="false">VAR</button>
       <button class="ooyl-tab" role="tab" data-rtab="cartoes" aria-selected="false">Previsão de cartões</button>
     </div>
 
@@ -257,6 +258,34 @@ window.addEventListener("hashchange", () => window.goatcounter.count && window.g
           </div>
         </header>
         <div id="refs-chart"></div>
+      </section>
+    </div>
+
+    <!-- As revisoes do VAR: o que cada uma mudou e para quem, no mesmo payload dos arbitros -->
+    <div id="var-main" class="view" hidden>
+      <div class="ooyl-tiles" id="var-kpis"></div>
+
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">VAR por time</h2>
+            <p class="ooyl-sub">Cada revisão do VAR que mudou a decisão do árbitro conta a favor de um time e contra o outro: gol validado ou anulado, pênalti marcado ou cancelado, expulsão dada ou retirada depois da revisão. O saldo é o que veio a favor menos o que veio contra. Uma revisão que manteve a decisão de campo entra só na coluna Revisões. É o registro do SofaScore, lance a lance; clique num time para ver as revisões dele.</p>
+          </div>
+        </header>
+        <div class="scroll"><table id="var-table"></table></div>
+      </section>
+
+      <section class="ooyl-card">
+        <header class="ooyl-card__head">
+          <div class="ooyl-card__titles">
+            <h2 class="ooyl-headline">Revisões de cada time</h2>
+            <p class="ooyl-sub">As revisões nos jogos do time escolhido, da mais recente para a mais antiga, com o que cada uma significou para ele. Clique numa linha para abrir a partida.</p>
+          </div>
+          <div class="ooyl-card__actions">
+            <span class="ooyl-field"><label class="ctl" for="var-team">Time</label><select id="var-team"></select></span>
+          </div>
+        </header>
+        <div class="scroll"><table id="var-list"></table></div>
       </section>
     </div>
 
@@ -389,6 +418,7 @@ window.addEventListener("hashchange", () => window.goatcounter.count && window.g
         <button class="ooyl-tab" role="tab" data-mtab="estatisticas" aria-selected="false">Estatísticas</button>
         <button class="ooyl-tab" role="tab" data-mtab="escalacoes" aria-selected="false">Escalações</button>
         <button class="ooyl-tab" role="tab" data-mtab="shotmap" aria-selected="false">Shotmap</button>
+        <button class="ooyl-tab" role="tab" data-mtab="gols" aria-selected="false">Gols</button>
       </div>
       <div id="match-body"></div>
     </section>

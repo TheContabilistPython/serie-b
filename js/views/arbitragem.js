@@ -12,7 +12,7 @@ import { showTip, hideTip, tipLine } from "../core/tooltip.js";
 import { barList, dotPlot } from "../core/charts.js";
 import { CARD_REASONS, cardBox, crest, teamName, tiles } from "../core/ui.js";
 import { teamCards } from "../core/players.js";
-import { dateOf } from "../core/format.js";
+import { dateOf, pctText } from "../core/format.js";
 import { getJSON } from "../core/api.js";
 import * as cartoes from "./cartoes.js";
 import { LANG, tx } from "../core/i18n.js";
@@ -31,11 +31,6 @@ const REF_METRICS = {
   firstCard: { name: "Minuto do 1º cartão", phrase: "min até o primeiro cartão, em média", digits: 0, unit: "'", up: "Demora a dar cartão", down: "Cartão cedo" },
   awayGap: { name: "Cartões: visitante − mandante", digits: 1, signed: true, up: "Mais cartões ao visitante", down: "Mais cartões ao mandante" },
 };
-const VAR_KINDS = {
-  goalAwarded: "Gol validado", goalNotAwarded: "Gol anulado", penaltyAwarded: "Pênalti marcado",
-  penaltyNotAwarded: "Pênalti não marcado", cardUpgrade: "Cartão agravado", redCardGiven: "Vermelho aplicado",
-  mistakenIdentity: "Jogador corrigido", other: "Outra decisão",
-};
 const REF_TITLES = {
   J: "Partidas apitadas nesta temporada", "Cart./J": "Cartões por jogo, os da comissão técnica incluídos",
   A: "Amarelos", "Exp.": "Expulsões: segundo amarelo e vermelho direto", "Faltas/J": "Faltas marcadas por jogo",
@@ -46,7 +41,7 @@ const REF_TITLES = {
   "Por jogo": "Cartões recebidos por jogo com este árbitro", Temporada: "Cartões recebidos por jogo em toda a temporada",
   "Pên. a favor": "Pênaltis marcados a favor do time", Faltas: "Faltas marcadas na partida, somando os dois times",
 };
-const RTABS = ["arbitros", "cartoes"];
+const RTABS = ["arbitros", "var", "cartoes"];
 const local = { refs: null, byId: null, referee: null, metric: "cards", tab: "arbitros" };
 
 const pairSum = (p) => p[0] + p[1];
@@ -98,6 +93,7 @@ export async function open(tab) {
   setView("arbitragem");
   syncTabs($("ref-tabs"), "rtab", local.tab);
   $("refs-main").hidden = local.tab !== "arbitros";
+  $("var-main").hidden = local.tab !== "var";
   $("cards-main").hidden = local.tab !== "cartoes";
   if (local.tab === "cartoes") { cartoes.open(); return; }
   if (!local.refs) {
@@ -111,6 +107,61 @@ export async function open(tab) {
     return;
   }
   if (state.view === "arbitragem" && local.tab === "arbitros") renderReferees();
+  if (state.view === "arbitragem" && local.tab === "var") renderVar();
+}
+
+// VAR: the reviews that changed a decision, for and against each team (the `var` of /api/referees).
+const VAR_KINDS = { goalOn: "Gol validado", goalOff: "Gol anulado", penaltyOn: "Pênalti marcado", penaltyOff: "Pênalti cancelado",
+  redOn: "Expulsão após revisão", redOff: "Expulsão retirada", kept: "Decisão de campo mantida" };
+const VAR_EFFECT = { goalOn: 1, penaltyOn: 1, redOff: 1, goalOff: -1, penaltyOff: -1, redOn: -1, kept: 0 };
+let varTeam = null;  // the team whose reviews the second card lists
+function renderVar() {
+  const d = local.refs.var, signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
+  const table = clear($("var-table")), list = clear($("var-list")), pick = clear($("var-team"));
+  if (!d || !d.total) {
+    clear($("var-kpis"));
+    table.appendChild(el("tbody", {}, el("tr", {}, el("td", { class: "left", text: "Nenhuma revisão do VAR nas partidas coletadas." }))));
+    return;
+  }
+  const best = d.table[0], worst = d.table[d.table.length - 1];
+  tiles($("var-kpis"), [
+    ["Revisões do VAR", fmt(d.total), tx("em {n} dos {total} jogos", { n: fmt(d.reviewed), total: fmt(d.matches) })],
+    ["Decisões mudadas", fmt(d.changed), tx("{pct} das revisões", { pct: pctText(d.changed / d.total) })],
+    ["Mais favorecido", signed(best.net), teamName(best.team)],
+    ["Mais prejudicado", signed(worst.net), teamName(worst.team)],
+  ]);
+  const head = [["#", ""], ["Time", ""], ["Revisões", "Revisões do VAR nos jogos do time"], ["A favor", "Decisões mudadas a favor do time"],
+    ["Contra", "Decisões mudadas contra o time"], ["Saldo", "A favor menos contra"], ["Gols", "Saldo das revisões de gol"],
+    ["Pênaltis", "Saldo das revisões de pênalti"], ["Expulsões", "Saldo das revisões de expulsão"]];
+  table.appendChild(el("thead", {}, el("tr", {}, head.map(([h, title], i) => el("th", { class: i <= 1 ? "left" : "", text: h, title })))));
+  table.appendChild(el("tbody", {}, d.table.map((r, i) => el("tr", {
+    class: "row-link", title: "ver as revisões do time", onclick: () => { varTeam = r.team.id; renderVar(); },
+  },
+    el("td", { class: "left pos", text: String(i + 1) }),
+    el("td", { class: "left" }, crest(r.team), el("span", { text: r.team.name })),
+    el("td", { text: fmt(r.reviews) }), el("td", { text: fmt(r.for) }), el("td", { text: fmt(r.against) }),
+    el("td", { class: "strong", text: signed(r.net) }),
+    el("td", { text: signed(r.goals) }), el("td", { text: signed(r.penalties) }), el("td", { text: signed(r.reds) })))));
+
+  const teams = d.table.map((r) => r.team).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  if (!teams.some((t) => t.id === varTeam)) varTeam = best.team.id;
+  teams.forEach((t) => pick.appendChild(el("option", { value: String(t.id), text: t.name })));
+  pick.value = String(varTeam);
+  pick.onchange = () => { varTeam = Number(pick.value); renderVar(); };
+  const mine = d.reviews.filter((v) => v.team === varTeam || v.rival === varTeam);
+  list.appendChild(el("thead", {}, el("tr", {}, ["Rod.", "Jogo", "Min.", "Decisão", "Lance de", "Jogador", "Para o time"].map((h, i) =>
+    el("th", { class: i === 0 || i === 2 ? "" : "left", text: h })))));
+  list.appendChild(el("tbody", {}, mine.length ? mine.map((v) => {
+    const effect = VAR_EFFECT[v.kind] * (v.team === varTeam ? 1 : -1), subject = v.team === v.home.id ? v.home : v.away;
+    return el("tr", { class: "row-link", title: "abrir a partida", onclick: () => go("#/partida/" + v.match) },
+      el("td", { text: v.round == null ? "-" : String(v.round) }),
+      el("td", { class: "left" }, el("span", { text: `${v.home.short || v.home.name} x ${v.away.short || v.away.name}` })),
+      el("td", { text: v.minute == null ? "-" : v.minute + (v.added ? "+" + v.added : "") + "'" }),
+      el("td", { class: "left", text: VAR_KINDS[v.kind] || v.kind }),
+      el("td", { class: "left" }, el("span", { text: subject.short || subject.name })),
+      el("td", { class: "left" }, el("span", { text: v.player || "-" })),
+      el("td", { class: "left" + (effect ? " strong" : ""), text: effect > 0 ? "a favor" : effect < 0 ? "contra" : "sem mudança" }));
+  }) : el("tr", {}, el("td", { class: "left", text: "Nenhuma revisão nos jogos deste time." }))));
 }
 
 export async function openReferee(id) {
@@ -406,7 +457,7 @@ function minutesChart(r, buckets) {
 
 $("ref-tabs").addEventListener("click", (ev) => {
   const btn = ev.target.closest('[role="tab"]');
-  if (btn) go(btn.dataset.rtab === "cartoes" ? "#/arbitragem/cartoes" : "#/arbitragem");
+  if (btn) go(btn.dataset.rtab === "arbitros" ? "#/arbitragem" : "#/arbitragem/" + btn.dataset.rtab);
 });
 $("referee-back").addEventListener("click", () => go("#/arbitragem"));
 

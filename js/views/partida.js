@@ -11,7 +11,7 @@ import { BODY, PITCH, SHOT_LABEL, SITUATION, formationRows, legendMark, pitchSvg
 import { getJSON } from "../core/api.js";
 import { LOCALE, tx } from "../core/i18n.js";
 
-const MTABS = ["resumo", "estatisticas", "escalacoes", "shotmap"];
+const MTABS = ["resumo", "estatisticas", "escalacoes", "shotmap", "gols"];
 const local = { match: null, tab: "resumo", shotFilter: "todos" };
 
 export async function open(id, tab) {
@@ -72,6 +72,7 @@ function renderMatchBody() {
   if (local.tab === "resumo") return renderTimeline(host, m);
   if (local.tab === "estatisticas") return renderStats(host, m);
   if (local.tab === "escalacoes") return renderLineups(host, m);
+  if (local.tab === "gols") return renderGoals(host, m);
   return renderShotmap(host, m);
 }
 
@@ -254,6 +255,71 @@ function renderLineups(host, m) {
   host.appendChild(el("div", { class: "ooyl-lineups" },
     sideColumn(lu.home, m.home, "home"),
     sideColumn(lu.away, m.away, "away")));
+}
+
+// Gols: each goal of the match with the play that led to it (the match's `goals`), on a whole pitch that always
+// attacks to the right. Across the pitch it follows the shotmap, turned a quarter: the same touchline on the same side.
+const STEP_LABEL = { pass: "passe", cross: "cruzamento", "ball-movement": "condução", goal: "finalização", "throw-in": "lateral",
+  save: "defesa", "ball-touch": "toque", miss: "finalização para fora", post: "trave", interception: "interceptação",
+  tackle: "desarme", clearance: "corte", block: "bloqueio", "penalty-save": "pênalti defendido" };
+const FIELD = { W: 1050, H: 680 };  // a 105 x 68 m pitch, ten units a metre
+function playSvg(goal) {
+  const { W, H } = FIELD, at = ([x, y]) => [x * W / 100, (100 - y) * H / 100];
+  const svg = el("svg", { class: "ooyl-shotmap__pitch", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Jogada do gol" });
+  svg.appendChild(el("rect", { x: 0, y: 0, width: W, height: H, rx: 10, style: "fill:var(--pitch)" }));
+  const box = (a) => el("rect", Object.assign({ class: "ooyl-shot-line" }, a));
+  svg.appendChild(box({ x: 2, y: 2, width: W - 4, height: H - 4, rx: 8 }));
+  svg.appendChild(el("line", { class: "ooyl-shot-line", x1: W / 2, x2: W / 2, y1: 2, y2: H - 2 }));
+  svg.appendChild(el("circle", { class: "ooyl-shot-line", cx: W / 2, cy: H / 2, r: 91.5 }));
+  [0, 1].forEach((right) => {
+    svg.appendChild(box({ x: right ? W - 167 : 2, y: (H - 403.2) / 2, width: 165, height: 403.2 }));
+    svg.appendChild(box({ x: right ? W - 57 : 2, y: (H - 183.2) / 2, width: 55, height: 183.2 }));
+    svg.appendChild(el("circle", { cx: right ? W - 110 : 110, cy: H / 2, r: 4, style: "fill:var(--pitch-line)" }));
+  });
+  svg.appendChild(el("line", { x1: W - 3, x2: W - 3, y1: H / 2 - 36.6, y2: H / 2 + 36.6, "stroke-width": 6, style: "stroke:var(--ink-muted)" }));
+  goal.steps.forEach((step, i) => {  // a carry says only where it started: it ends where the next touch begins
+    const next = goal.steps[i + 1], end = step.to || (next && next.from);
+    if (!end) return;
+    const [x1, y1] = at(step.from), [x2, y2] = at(end), shot = step.type === "goal", ink = css(step.isHome ? "--home" : "--away");
+    const stroke = { stroke: ink, "stroke-width": shot ? 9 : 5, "stroke-linecap": "round", "stroke-linejoin": "round", fill: "none" };
+    if (step.type === "ball-movement") stroke["stroke-dasharray"] = "2 15";
+    svg.appendChild(el("line", Object.assign({ x1, y1, x2, y2 }, stroke)));
+    if (Math.hypot(x2 - x1, y2 - y1) < 40) return;
+    const angle = Math.atan2(y2 - y1, x2 - x1), size = shot ? 28 : 19;
+    const wing = (turn) => `${x2 - size * Math.cos(angle + turn)} ${y2 - size * Math.sin(angle + turn)}`;
+    delete stroke["stroke-dasharray"];
+    svg.appendChild(el("path", Object.assign({ d: `M ${wing(0.45)} L ${x2} ${y2} L ${wing(-0.45)}` }, stroke)));
+  });
+  goal.steps.forEach((step, i) => {  // the numbered spots last, over the lines
+    const [x, y] = at(step.from), ink = css(step.isHome ? "--home" : "--away");
+    svg.appendChild(el("circle", { cx: x, cy: y, r: 21, fill: css("--pitch"), stroke: ink, "stroke-width": 4 }));
+    svg.appendChild(el("text", { x, y: y + 9, "text-anchor": "middle", "font-size": 25, "font-weight": 700, fill: ink }, String(i + 1)));
+  });
+  return svg;
+}
+
+function renderGoals(host, m) {
+  const goals = m.goals || [];
+  if (!goals.length) { host.appendChild(el("div", { class: "empty", text: "Partida sem gols." })); return; }
+  host.appendChild(el("p", { class: "ooyl-sub", text: "Cada gol com a jogada que o originou: passes e cruzamentos em linha cheia, condução pontilhada e a finalização em linha grossa. O campo está sempre virado para o ataque ir para a direita, e os números seguem a ordem dos toques." }));
+  goals.forEach((g) => {
+    const minute = g.time == null ? "" : g.time + (g.added ? "+" + g.added : "") + "'";
+    const words = [SITUATION[g.situation], BODY[g.body]].filter(Boolean).map((w) => tx(w));
+    if (g.xg != null) words.push("xG " + fmt(g.xg, 2));
+    host.appendChild(el("div", { class: "round-name" }, el("span", { text: `${minute} · ${g.homeScore ?? "?"}–${g.awayScore ?? "?"}` })));
+    host.appendChild(el("p", { style: "display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 var(--space-2)" },
+      crest(g.isHome ? m.home : m.away), el("b", {}, el("span", { text: g.player || "Gol" })),
+      g.class === "ownGoal" ? el("span", { class: "ooyl-tag", text: "Gol contra" })
+        : g.class === "penalty" ? el("span", { class: "ooyl-tag ooyl-tag--accent", text: "Pênalti" }) : null,
+      g.assist ? el("span", { class: "ooyl-tl__meta", text: tx("assist. {nome}", { nome: g.assist }) }) : null,
+      words.length ? el("span", { class: "ooyl-tl__meta" }, el("span", { text: words.join(", ") })) : null));
+    if (!g.steps.length) { host.appendChild(el("div", { class: "empty", text: "Os dados não trazem a jogada deste gol." })); return; }
+    host.appendChild(el("div", { style: "max-width:760px" }, playSvg(g)));
+    const passes = g.steps.filter((s) => s.type === "pass" || s.type === "cross" || s.type === "throw-in").length;
+    const touches = g.steps.map((s, i) => `${i + 1} ${s.player || "?"} (${tx(STEP_LABEL[s.type] || s.type)})`).join(" · ");
+    host.appendChild(el("p", { class: "ooyl-sub" }, el("span", {
+      text: tx("{passes} antes da finalização.", { passes: `${fmt(passes)} ${tx(passes === 1 ? "passe" : "passes")}` }) + " " + touches })));
+  });
 }
 
 function renderShotmap(host, m) {
