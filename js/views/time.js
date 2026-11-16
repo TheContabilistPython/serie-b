@@ -12,6 +12,7 @@ import { PLAYER_TITLES, POS_CODE, playerById, playerTable } from "../core/player
 import { BODY, PITCH, SHOT_LABEL, SITUATION, formationRows, legendMark, pitchSvg } from "../core/pitch.js";
 import { getJSON } from "../core/api.js";
 import { ord, tx, txn } from "../core/i18n.js";
+import { finalWords } from "../core/league.js";
 
 const TTABS = ["escalacoes", "shotmap", "distancia"];
 const TTAB_NAMES = { escalacoes: "Escalações", shotmap: "Shotmap", distancia: "Distância percorrida" };
@@ -50,7 +51,8 @@ function renderTeam() {
     el("div", {},
       el("h1", { text: t.team.name }),
       el("p", { class: "ooyl-sub", text: row
-        ? tx("{lugar} · {pontos} · {jogos} ({v}V {e}E {d}D) · formações: {lista}", { lugar: ord(row.pos),
+        ? tx("{lugar} · {pontos} · {jogos} ({v}V {e}E {d}D) · formações: {lista}", {
+          lugar: ord(row.pos) + (finalWords(row.pos) ? " · " + finalWords(row.pos) : ""),  // how the season ended for it
           pontos: counted(row.pts, "ponto", "pontos"), jogos: counted(row.j, "jogo", "jogos"), v: row.v, e: row.e, d: row.d,
           lista: t.formations.map((f) => `${f.formation} (${f.count})`).join(", ") })
         : counted(t.matches, "jogo", "jogos") }))));

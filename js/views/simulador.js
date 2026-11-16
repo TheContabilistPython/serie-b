@@ -9,7 +9,7 @@ import { setView, syncTabs } from "../core/router.js";
 import { showTip, hideTip, tipLine } from "../core/tooltip.js";
 import { oddsBar } from "../core/charts.js";
 import { crest, teamName, tiles } from "../core/ui.js";
-import { league, zoneOf } from "../core/league.js";
+import { league, seasonOver, zoneOf } from "../core/league.js";
 import { dateOf, pctText } from "../core/format.js";
 import { getJSON } from "../core/api.js";
 import { LOCALE, tx } from "../core/i18n.js";
@@ -21,13 +21,8 @@ const pctCell = (value, tone) => el("td", {}, el("span", { class: "ooyl-prob ooy
   el("i", { style: `width:${Math.min(100, 100 * value)}%` }),
   el("b", { text: pctText(value) })));
 
-// The season is over when every team has played its double round-robin and the calendar has nothing left:
-// there is nothing to simulate, and the public copy has no /api/simulacao to ask for (a plain 404).
-function seasonOver() {
-  const index = state.index, left = index && index.calendar && index.calendar.matches;
-  return !!left && !left.length && index.table.length > 1 && index.table.every((r) => r.j >= 2 * (index.table.length - 1));
-}
-
+// With the season over (league.js) there is nothing to simulate, and the public copy has no /api/simulacao
+// to ask for (a plain 404): the tab says so instead.
 function renderOver() {
   const over = tx("A temporada terminou: não há jogos a simular. A classificação final está na aba Temporada.");
   syncTabs($("sim-modes"), "smode", local.mode);

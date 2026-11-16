@@ -1,12 +1,12 @@
 // Temporada: the headline numbers, the standings with the league's zones, goals per round, top scorers.
-import { $, el, clear, fmt } from "../core/dom.js";
+import { $, el, clear, counted, fmt } from "../core/dom.js";
 import { state, on } from "../core/state.js";
 import { go } from "../core/nav.js";
 import { tipLine } from "../core/tooltip.js";
 import { lineChart, barList } from "../core/charts.js";
 import { crest, face, teamName, tiles } from "../core/ui.js";
-import { zoneOf } from "../core/league.js";
-import { tx } from "../core/i18n.js";
+import { league, seasonOver, zoneOf } from "../core/league.js";
+import { LOCALE, tx } from "../core/i18n.js";
 
 const TITLES = { P: "Pontos", J: "Jogos", V: "Vitórias", E: "Empates", D: "Derrotas", GP: "Gols pró", GC: "Gols contra", SG: "Saldo de gols", xG: "Gols esperados a favor", xGC: "Gols esperados sofridos" };
 
@@ -20,7 +20,22 @@ function renderKpis(t) {
   ]);
 }
 
+// With the season over, the card opens with how it ended: the champion and who is in each zone of the rules.
+function renderFinal(rows) {
+  const box = clear($("season-final"));
+  box.hidden = !seasonOver() || !rows.length;
+  if (box.hidden) return;
+  const listed = new Intl.ListFormat(LOCALE, { style: "long", type: "conjunction" });
+  box.appendChild(el("span", {}, tx("Temporada encerrada. "), el("b", {}, el("span", { text: rows[0].team.name })),
+    tx(" é o campeão, com {pontos}.", { pontos: counted(rows[0].pts, "ponto", "pontos") })));
+  league().zones.forEach((z) => {
+    const teams = rows.filter((r) => z.from <= r.pos && r.pos <= z.to).map((r) => r.team.short || r.team.name);
+    if (teams.length) box.appendChild(el("span", {}, " ", el("b", { text: z.label }), tx(": {times}.", { times: listed.format(teams) })));
+  });
+}
+
 function renderStandings(rows) {
+  renderFinal(rows);
   const table = clear($("standings"));
   const head = ["#", "Time", "P", "J", "V", "E", "D", "GP", "GC", "SG", "xG", "xGC"];
   table.appendChild(el("thead", {}, el("tr", {}, head.map((h, i) =>

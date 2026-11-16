@@ -1039,5 +1039,10 @@
  "corte": "clearance",
  "bloqueio": "block",
  "pênalti defendido": "penalty saved",
- "A temporada terminou: não há jogos a simular. A classificação final está na aba Temporada.": "The season is over: there are no matches left to simulate. The final table is in the Season tab."
+ "A temporada terminou: não há jogos a simular. A classificação final está na aba Temporada.": "The season is over: there are no matches left to simulate. The final table is in the Season tab.",
+ "Temporada encerrada. ": "Season over. ",
+ " é o campeão, com {pontos}.": " are the champions, with {pontos}.",
+ ": {times}.": ": {times}.",
+ "campeão": "champions",
+ "encerrada": "over"
 }
