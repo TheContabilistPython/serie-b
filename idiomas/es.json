@@ -1038,5 +1038,6 @@
  "desarme": "entrada",
  "corte": "despeje",
  "bloqueio": "bloqueo",
- "pênalti defendido": "penalti parado"
+ "pênalti defendido": "penalti parado",
+ "A temporada terminou: não há jogos a simular. A classificação final está na aba Temporada.": "La temporada terminó: no quedan partidos por simular. La clasificación final está en la pestaña Temporada."
 }

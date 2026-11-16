@@ -21,8 +21,28 @@ const pctCell = (value, tone) => el("td", {}, el("span", { class: "ooyl-prob ooy
   el("i", { style: `width:${Math.min(100, 100 * value)}%` }),
   el("b", { text: pctText(value) })));
 
+// The season is over when every team has played its double round-robin and the calendar has nothing left:
+// there is nothing to simulate, and the public copy has no /api/simulacao to ask for (a plain 404).
+function seasonOver() {
+  const index = state.index, left = index && index.calendar && index.calendar.matches;
+  return !!left && !left.length && index.table.length > 1 && index.table.every((r) => r.j >= 2 * (index.table.length - 1));
+}
+
+function renderOver() {
+  const over = tx("A temporada terminou: não há jogos a simular. A classificação final está na aba Temporada.");
+  syncTabs($("sim-modes"), "smode", local.mode);
+  $("sim-manual").hidden = local.mode !== "manual";
+  $("sim-prob").hidden = local.mode !== "prob";
+  $("sim-sub").textContent = over;
+  $("siman-sub").textContent = over;
+  [$("sim-kpis"), $("sim-table"), $("sim-games"), $("siman-table"), $("siman-games")].forEach(clear);
+  ["siman-fill", "siman-clear", "sim-reload", "sim-second"].forEach((id) => { $(id).hidden = true; });
+  [$("siman-games"), $("sim-games")].forEach((node) => { node.closest(".ooyl-card").hidden = true; });
+}
+
 export async function open(again) {
   setView("simulador");
+  if (seasonOver()) { renderOver(); return; }
   if (local.sim && !again) { renderSimView(); return; }
   $("sim-sub").textContent = tx(again ? "Sorteando outras temporadas…" : "Simulando o resto da temporada…");
   $("siman-sub").textContent = tx("Carregando o calendário e o modelo…");
